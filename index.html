@@ -129,6 +129,11 @@ body[data-tela=Narr] .sum,body[data-tela=Narr] .meter,body[data-tela=Narr] .stat
 .efl input{flex:1;min-width:0;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--tx);font:inherit;font-size:16px}
 .bts{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.bts .elim{margin-left:0}
 .elim.on{border-color:var(--bad);color:var(--bad)}.call.dead [data-us]{display:none}
+
+.lemb{margin-top:6px;font-size:13px;color:var(--acc);opacity:.6}.lemb b{font-weight:600}.call.dead .lemb{display:none}
+@keyframes slD{from{opacity:.2;transform:translateX(40px)}to{opacity:1;transform:none}}
+@keyframes slE{from{opacity:.2;transform:translateX(-40px)}to{opacity:1;transform:none}}
+.sl-d{animation:slD .22s ease-out}.sl-e{animation:slE .22s ease-out}
 </style>
 </head>
 <body data-tela="Vila">
@@ -412,8 +417,7 @@ const EFEITOS={
   nota:{l:'Anotação livre',i:'📝'}};
 const EF_ROLE={Werewolf:['morre'],'Wolf Cub':['morre'],'Lone Wolf':['morre'],Huntress:['morre'],Revealer:['morre'],
   Witch:['vida','mata'],Spellcaster:['silencia'],'Old Hag':['afasta'],Bodyguard:['protege'],Priest:['protege'],
-  Vampire:['marca'],'Cult Leader':['culto'],Seer:['info'],'Aura Seer':['info'],'Mystic Seer':['info'],Mentalist:['info'],
-  'P.I.':['info'],Cupid:['par'],Hoodlum:['par'],'Alpha Wolf':['transf'],Doppelganger:['copia']};
+  Vampire:['marca'],'Cult Leader':['culto'],Cupid:['par'],Hoodlum:['par'],'Alpha Wolf':['transf'],Doppelganger:['copia']};
 const efDe=p=>[...new Set(p.nomes.flatMap(n=>EF_ROLE[n]||[]))];
 const kcall=p=>p.nomes.join('+');
 const abertos=new Set();
@@ -449,9 +453,10 @@ function desenharRoteiro(){
     const ins=instDe(p),nm=ins.filter(x=>x.morto).length,tot=ins.length,mortoTodos=tot>0&&nm===tot;
     const btnE=!tot?'':mortoTodos?`<button class="elim" data-rv="${i}">↩ Voltou</button>`:tot===1?`<button class="elim" data-el="${i}">☠ Eliminado</button>`:`<button class="elim ${nm?'parc':''}" data-ep="${id}">☠ Eliminados ${nm}/${tot}</button>`;
     const painelE=(tot>1&&abertosE.has(id)&&!mortoTodos)?`<div class="elims">${ins.map(x=>`<button class="chipx ${x.morto?'on':''}" data-ek="${esc(x.k)}">${x.morto?'❤️':'💀'} ${esc(x.nome)}</button>`).join('')}</div>`:'';
+    const lemb=camposDe(p).filter(c=>String(anot.ef[c.k]||'').trim()).map(c=>`<div class="lemb">${EFEITOS[c.f].i} ${EFEITOS[c.f].l}: <b>${esc(anot.ef[c.k])}</b></div>`).join('');
     const btnU=usosDe(p).map(u=>`<button class="elim ${anot.uso[u.k]?'on':''}" data-us="${esc(u.k)}">⚡ ${u.l}</button>`).join('');
     return `<div class="call ${d?'done':''} ${mortoTodos?'dead':''}"><div class="h"><span class="who">${p.papeis.join(' · ')}</span><span style="display:flex;gap:8px;align-items:center"><span class="w">${p.quando_txt}</span>${efDe(p).length?`<button class="nbtn ${temNota(p)?'tem':''}" data-ab="${i}" aria-label="Anotar alvo/resultado">📝</button>`:''}</span></div>
-      <q>“${p.fala}”</q><div class="a">${p.acao}</div>
+      <q>“${p.fala}”</q><div class="a">${p.acao}</div>${lemb}
       <details><summary>Regras detalhadas</summary>${p.nomes.map(n=>{const r=ROLES.find(x=>x.name===n);return `<p><b>${r.pt||r.name}:</b> ${r.detalhe||r.acao}</p>`+(r.variantes&&r.variantes.length?'<ul>'+r.variantes.map(v=>`<li>${v}</li>`).join('')+'</ul>':'')}).join('')}</details>
       ${p.conferir?'<div class="warn">⚠ Conferir texto/regra na sua carta</div>':''}
       ${painelE}<div class="acoes"><label><input type="checkbox" data-id="${id}" ${d?'checked':''}> Chamado</label><span class="bts">${btnU}${btnE}</span></div></div>`}).join('');
@@ -464,7 +469,7 @@ function relatorio(){
   const n=anot.noite,ents=[];
   for(const [key,val] of Object.entries(anot.ef)){
     const i=key.indexOf('|'),j=key.lastIndexOf('|');
-    if(+key.slice(0,i)!==n||!String(val).trim())continue;
+    if(+key.slice(0,i)!==n||!String(val).trim()||key.endsWith('|info'))continue;
     ents.push({kind:key.slice(j+1),papel:papelPt(key.slice(i+1,j)),alvos:partes(val)});
   }
   const pess=new Map();
@@ -523,22 +528,26 @@ $('#seg').onclick=e=>{const k=e.target.dataset.k;if(!k)return;setNoite(k==='prim
 document.querySelector('nav').onclick=e=>{const t=e.target.dataset.t;if(!t)return;
   document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b===e.target));
   for(const k of ['Vila','Papeis','Narr'])$('#tela'+k).hidden=t!==k;document.body.dataset.tela=t;scrollTo(0,0)};
-// ---- deslizar para trocar as abas do Narrador ----
-(()=>{const el=$('#telaNarr'),ordem=['roteiro','jogadores','diario'];let x0=0,y0=0,ok=false;
-  el.addEventListener('touchstart',e=>{const t=e.touches[0];x0=t.clientX;y0=t.clientY;ok=e.touches.length===1&&!e.target.closest('input,textarea,select')},{passive:true});
-  el.addEventListener('touchend',e=>{if(!ok)return;ok=false;const t=e.changedTouches[0],dx=t.clientX-x0,dy=t.clientY-y0;
+// ---- deslizar para o lado troca as abas do Narrador (toque e mouse) ----
+(()=>{const el=$('#telaNarr'),ordem=['roteiro','jogadores','diario'],pn={roteiro:'#pRoteiro',jogadores:'#pJog',diario:'#pDia'};let p0=null;
+  el.style.touchAction='pan-y pinch-zoom';
+  el.addEventListener('pointerdown',e=>{p0=e.isPrimary&&!e.target.closest('input,textarea,select,.dh')?{x:e.clientX,y:e.clientY}:null});
+  el.addEventListener('pointercancel',()=>{p0=null});
+  el.addEventListener('pointerup',e=>{if(!p0)return;const dx=e.clientX-p0.x,dy=e.clientY-p0.y;p0=null;
     if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.6)return;
     const n=ordem.indexOf(sub)+(dx<0?1:-1);if(n<0||n>=ordem.length)return;
-    document.querySelector(`#segN button[data-k="${ordem[n]}"]`).click();scrollTo(0,0)},{passive:true});
+    document.querySelector(`#segN button[data-k="${ordem[n]}"]`).click();scrollTo(0,0);
+    const pa=$(pn[ordem[n]]),c=dx<0?'sl-d':'sl-e';pa.classList.add(c);setTimeout(()=>pa.classList.remove(c),260)});
 })();
 // ---- estado da interface salvo no navegador (aba aberta, chamados, campos do sorteio) ----
 let pronto=false;
-function salvarUI(){if(!pronto)return;try{localStorage.setItem('uw4',JSON.stringify({tela:document.body.dataset.tela,sub,feitos:[...feitos],
+function salvarUI(){if(!pronto)return;try{localStorage.setItem('uw4',JSON.stringify({tela:document.body.dataset.tela,sub,visao,feitos:[...feitos],
   gN:$('#gN').value,gMax:$('#gMax').value,gA:$('#gA').value,gG:$('#gG').value}))}catch(e){}}
 function restaurarUI(){
   try{const u=JSON.parse(localStorage.getItem('uw4')||'{}');
     for(const [id,k] of [['gN','gN'],['gMax','gMax'],['gA','gA'],['gG','gG']])if(u[k]!==undefined&&u[k]!==null)$('#'+id).value=u[k];
     (u.feitos||[]).forEach(x=>feitos.add(x));
+    if(['time','esp'].includes(u.visao)){const b=document.querySelector(`#segV button[data-v="${u.visao}"]`);if(b)b.click()}
     if(['jogadores','diario'].includes(u.sub))document.querySelector(`#segN button[data-k="${u.sub}"]`).click();
     else desenharRoteiro();
     if(['Papeis','Narr'].includes(u.tela))document.querySelector(`nav button[data-t="${u.tela}"]`).click();
