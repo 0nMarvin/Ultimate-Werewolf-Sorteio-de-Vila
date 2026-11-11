@@ -101,7 +101,7 @@ const UW = (() => {
       if (r.noite) passo(n, r.noite, r.acao);
     }
     const lista = [...passos.values()].sort((a, b) => a.ordem - b.ordem || (a.fala < b.fala ? -1 : a.fala > b.fala ? 1 : 0));
-    for (const p of lista) { p.quando_txt = QUANDO[p.quando]; p.acao = p.acoes[0]; delete p.acoes; }
+    for (const p of lista) { p.quando_txt = QUANDO[p.quando]; p.acao = p.acoes[Math.max(0, p.nomes.indexOf("Werewolf"))]; delete p.acoes; }
     const primeira = lista.filter(p => p.quando !== "trigger" && p.quando !== "n3");
     const seguintes = lista.filter(p => p.quando !== "first" && p.quando !== "ident");
     const sem_acao = Object.keys(sel).filter(n => !ROLES[n].noite && !ROLES[n].ident);

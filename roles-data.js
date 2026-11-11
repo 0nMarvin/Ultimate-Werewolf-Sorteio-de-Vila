@@ -737,7 +737,7 @@ const UW_ROLES = [
   "noite": {
    "ordem": 80,
    "quando": "every",
-   "fala": "Lobos, abram os olhos e escolha a vítima."
+   "fala": "Lobos, abram os olhos e escolham a vítima."
   },
   "detalhe": "É lobo e acorda com eles. Se for eliminado, os lobos eliminam dois jogadores na noite seguinte.",
   "variantes": [],
