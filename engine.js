@@ -31,7 +31,7 @@ const UW = (() => {
   const sum = (o, f) => Object.entries(o).reduce((s, [k, q]) => s + f(k, q), 0);
 
   async function load() {
-    const list = await (await fetch("data/roles.json")).json();
+    const list = UW_ROLES;
     ROLES = {};
     for (const r of list) ROLES[r.name] = r;
     return { roles: Object.values(ROLES), filtros: FILTROS, limitaveis: LIMITAVEIS,
