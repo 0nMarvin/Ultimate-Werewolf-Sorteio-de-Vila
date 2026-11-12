@@ -1,4 +1,121 @@
-/* Papéis do jogo (antes data/roles.json). Edite aqui. */
+/* =============================================================================
+   PAPÉIS DO JOGO  ·  COMO ESCREVER (OU EDITAR) UM PAPEL
+   =============================================================================
+   Este arquivo é só a lista de papéis: UW_ROLES é uma lista [ ... ] com UM objeto
+   { ... } por papel. A sintaxe é de JSON: aspas duplas em tudo, vírgula entre os
+   campos e entre os papéis, e NENHUMA vírgula depois do último item. Um erro de
+   vírgula deixa o site em branco (veja o erro no Console do navegador, F12).
+   A ordem dos papéis aqui é a ordem em que eles aparecem nas listas do site.
+
+   ---------------------------------------------------------------------------
+   CAMPOS
+   ---------------------------------------------------------------------------
+   name       Nome oficial em inglês. É o "identificador" do papel: aparece nos
+              chamados e é usado no código (EF_ROLE, MULTI, INIMIGOS...). Não
+              repita nome e, se mudar um nome, mude-o também nesses lugares.
+   pt         Nome em português mostrado nas listas.
+   adj        Peso de equilíbrio. Positivo = ajuda a VILA (ex.: Vidente +7);
+              negativo = ajuda os INIMIGOS (ex.: Lobo Alfa -9). O site soma
+              os pesos de todos os papéis da vila: perto de 0 = vila equilibrada,
+              e o sorteio tenta chegar no "saldo alvo" que você escolher.
+   grupo      Categoria do papel. Define em qual seção ele aparece na aba Papéis
+              e a quais limites do sorteio ele obedece. Valores:
+                vila (aldeões) · info (investigadores) · prot (protetores)
+                caos (caóticos) · extra · macons · lobos · vampiros · culto
+   time       Lado que vence junto: vila · lobos · vampiros · culto.
+              Usado no placar, na visão "Time" da aba Vila e no botão de arrastar
+              jogadores. Não é o mesmo que grupo: o Amaldiçoado é do grupo "extra"
+              mas do time "vila".
+   tags       Lista de "grupos removíveis" ligados aos botões da aba Papéis
+              (Remover grupos). Valores: "vampiros", "macons", "lobos_especiais",
+              "culto". Use [] se o papel não pertence a nenhum. Quando o grupo é
+              removido, o papel some do sorteio.
+   max        Quantas cartas iguais podem existir na vila (1 para a maioria;
+              Aldeão 15, Lobisomem 12...).
+   acao       Resumo de UMA frase, mostrado no card do chamado e na lista.
+   detalhe    Regra completa, mostrada em "Regras detalhadas". Pode ser null.
+   variantes  Lista de regras opcionais/alternativas (texto), ou [] se não houver.
+   conferir   true = mostra "⚠ Conferir texto/regra na sua carta" no chamado.
+              Use quando não tiver certeza do texto da carta. Senão, false.
+
+   ---------------------------------------------------------------------------
+   CHAMADA NOTURNA (os dois blocos são opcionais)
+   ---------------------------------------------------------------------------
+   Sem "noite" e sem "ident" o papel não é chamado: ele entra na linha
+   "Sem chamada noturna" do Roteiro (ex.: Aldeão, Caçador, Pacifista...).
+
+   "noite": { "ordem": 40, "quando": "every", "fala": "Texto que o narrador lê." }
+      ordem   Quem tem número menor acorda primeiro. Deixe espaços (10, 20,
+              30...) para poder encaixar papéis novos no meio sem renumerar.
+      fala    O que o narrador diz. Aparece entre aspas no card.
+      quando  Em quais noites o card aparece:
+                "first"   só na Noite 1 (ex.: Cupido, Maçons)
+                "every"   toda noite, a partir da 1ª (ex.: Vidente, Lobisomem)
+                "once"    poder de uso único, toda noite até ser usado; o card
+                          ganha sozinho o botão "⚡ Poder usado" (ex.: Padre)
+                "n3"      só na Noite 3 (ex.: Bêbado)
+                "trigger" só a partir da Noite 2, "quando acontecer"
+      Unir chamados: papéis com a MESMA "ordem" e a MESMA "fala" (letra por
+      letra!) viram um card só (ex.: Lobisomem + Filhote + Lobo Solitário).
+      Se a fala diferir em uma letra, viram dois cards.
+
+   "ident": { "ordem": 3, "fala": "...", "nota": "O que o narrador deve anotar." }
+      Só para papéis que, na 1ª noite, apenas se identificam para o narrador
+      sem agir (ex.: Licano, Homem-Bomba). Use ordens baixas (1 a 9) para vir
+      antes dos demais. Aparece como "1ª noite · só identificar".
+
+   ---------------------------------------------------------------------------
+   O QUE MAIS AJUSTAR FORA DESTE ARQUIVO (só quando o papel precisar)
+   ---------------------------------------------------------------------------
+   engine.js
+     INIMIGOS         Se o novo papel é inimigo (lobo, vampiro...), inclua o
+                      nome aqui para ele contar na cota de inimigos do sorteio.
+     CATEGORIAS /     Só se criar um "grupo" novo. Cada grupo precisa de um
+     PADROES          rótulo em CATEGORIAS e, se tiver limite de sorteio,
+                      de uma linha em LIMITAVEIS e PADROES.
+     FILTROS          Só se criar uma "tag" nova de grupo removível.
+     SEM_CHAMADA      Papéis que têm "noite" mas não devem ser chamados porque
+                      entram sozinhos (ex.: Vidente Aprendiz).
+     Dependências     O sorteio e o aviso de equilíbrio exigem a Vidente para
+                      Feiticeira e Vidente Aprendiz. Regras assim ficam em
+                      gerarVila() e balanco().
+   index.html
+     EF_ROLE + EFEITOS  Para o card do papel ter o botão 📝 com campo de nome
+                        (ex.: quem morre, quem é protegido). Em EF_ROLE escreva
+                        'Nome do papel': ['efeito']; os efeitos existentes estão
+                        em EFEITOS (morre, mata, vida, silencia, protege,
+                        afasta, marca, culto, par, transf, copia). Papéis só
+                        de investigação NÃO usam isso de propósito.
+     MULTI              Papéis com VÁRIOS poderes de uso único (como a Bruxa):
+                        habilita a opção "todos na mesma noite" ou "separados".
+     GT                 Rótulos dos times, se criar um "time" novo.
+
+   ---------------------------------------------------------------------------
+   MODELO PARA COPIAR (apague o que não usar)
+   ---------------------------------------------------------------------------
+   {
+    "name": "Example Role",
+    "pt": "Papel Exemplo",
+    "adj": 3,
+    "grupo": "prot",
+    "time": "vila",
+    "tags": [],
+    "max": 1,
+    "acao": "Cada noite escolhe um jogador para proteger.",
+    "detalhe": "Texto mais longo com as regras completas (ou null).",
+    "variantes": [],
+    "conferir": false,
+    "noite": {
+     "ordem": 46,
+     "quando": "every",
+     "fala": "Papel Exemplo, abra os olhos e escolha quem proteger."
+    }
+   },
+
+   DEPOIS DE EDITAR: recarregue a página (Ctrl+F5). Se ficar em branco, procure
+   vírgula faltando/sobrando ou aspas simples neste arquivo. Se mudar a vila
+   salva, use "Limpar vila" (aba Papéis) para evitar conflitos com papéis antigos.
+   ============================================================================= */
 const UW_ROLES = [
  {
   "name": "Alpha Wolf",

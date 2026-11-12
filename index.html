@@ -134,6 +134,13 @@ body[data-tela=Narr] .sum,body[data-tela=Narr] .meter,body[data-tela=Narr] .stat
 @keyframes slD{from{opacity:.2;transform:translateX(40px)}to{opacity:1;transform:none}}
 @keyframes slE{from{opacity:.2;transform:translateX(-40px)}to{opacity:1;transform:none}}
 .sl-d{animation:slD .22s ease-out}.sl-e{animation:slE .22s ease-out}
+
+details.g>summary>span:first-child{flex:1}details.g>summary>span:nth-child(2){margin-right:12px;text-align:right;white-space:nowrap}
+details.g>summary::after{width:16px;text-align:center;flex:none}
+.call.gasto{opacity:.6}
+
+.cfgp{margin:12px 0;font-size:14px}.cfgp summary{color:var(--acc);min-height:36px;display:flex;align-items:center}
+.cfgp select{flex:1;min-width:0;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--tx);font:inherit;font-size:15px}
 </style>
 </head>
 <body data-tela="Vila">
@@ -185,10 +192,6 @@ body[data-tela=Narr] .sum,body[data-tela=Narr] .meter,body[data-tela=Narr] .stat
     <button data-k="diario" aria-pressed="false">Diário</button>
   </div>
   <div id="pRoteiro">
-    <div class="seg" id="seg">
-      <button data-k="primeira" aria-pressed="true">1ª noite</button>
-      <button data-k="seguintes" aria-pressed="false">Noites seguintes</button>
-    </div>
     <div id="roteiro"></div>
   </div>
   <div id="pJog" hidden></div>
@@ -424,11 +427,19 @@ const abertos=new Set();
 const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const partes=v=>String(v||'').split(/[,;+\/&]|\s+e\s+/i).map(x=>x.trim()).filter(Boolean);
 const papelPt=k=>k.split('+').map(x=>{const r=ROLES.find(y=>y.name===x);return r?(r.pt||r.name):x}).join(' / ');
+let cfg={modo:{}};try{Object.assign(cfg,JSON.parse(localStorage.getItem('uw5')||'{}'))}catch(e){}
+const salvarCfg=()=>{try{localStorage.setItem('uw5',JSON.stringify(cfg))}catch(e){}};
+const MULTI={Witch:{vida:['Witch|vida','Vida usada'],mata:['Witch|morte','Morte usada']}};   // papéis com vários poderes de uso único
+const modoDe=n=>cfg.modo[n]||'mesma';   // 'mesma' = todos na mesma noite (padrão) · 'sep' = cada poder uma vez, em qualquer noite
+const usadoAntes=k=>{const v=anot.uso[k];return !!v&&Number(v)<anot.noite};
+const chaveUso=(n,f)=>MULTI[n]&&modoDe(n)==='sep'?MULTI[n][f][0]:n+'|poder';
+const efBloq=(p,f)=>{const d=p.nomes.filter(n=>(EF_ROLE[n]||[]).includes(f));return d.length>0&&d.every(n=>usadoAntes(chaveUso(n,f)))};
 function camposDe(p){const n=anot.noite,k=kcall(p);
-  return [...efDe(p).map(f=>({st:'ef',k:n+'|'+k+'|'+f,f}))]}
+  return efDe(p).filter(f=>!efBloq(p,f)).map(f=>({st:'ef',k:n+'|'+k+'|'+f,f}))}
 const temNota=p=>camposDe(p).some(c=>String(anot[c.st][c.k]||'').trim());
 const usosDe=p=>p.nomes.flatMap(n=>{const r=ROLES.find(x=>x.name===n);
-  if(n==='Witch')return [{k:'Witch|vida',l:'Vida usada'},{k:'Witch|morte',l:'Morte usada'}];
+  if(MULTI[n]&&modoDe(n)==='sep')return Object.values(MULTI[n]).map(([k,l])=>({k,l}));
+  if(MULTI[n])return [{k:n+'|poder',l:'Poder usado'}];
   return (r.noite&&r.noite.quando==='once')||n==='Troublemaker'?[{k:n+'|poder',l:'Poder usado'}]:[]});
 function abrirPop(p){if(!p)return;
   const nomes=Object.values(anot.jog).filter(a=>a.nome&&!a.morto).map(a=>a.nome);
@@ -442,26 +453,29 @@ $('#dlg').addEventListener('close',()=>{if(dados&&dados.balanco.jogadores)desenh
 function setNoite(n){anot.noite=Math.max(1,n);salvarA();desenharRoteiro();if(sub==='diario')desenharDia()}
 function desenharRoteiro(){
   aba=anot.noite===1?'primeira':'seguintes';
-  document.querySelectorAll('#seg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.k===aba));
   const r=dados.roteiro,lista=r[aba]||[];
   if(!dados.balanco.jogadores){$('#roteiro').innerHTML='<div class="empty">Monte a vila primeiro: o roteiro aparece aqui só com os papéis ativos.</div>';return}
   const nomes=Object.values(anot.jog).filter(a=>a.nome&&!a.morto).map(a=>a.nome);
   let h=`<datalist id="dlr">${nomes.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>
     <div class="nav2"><button data-nn="-1" ${anot.noite<=1?'disabled':''}>‹</button><b>Noite ${anot.noite}</b><button data-nn="1">›</button></div>`;
   h+=lista.map((p,i)=>{
+    if(p.quando==='n3'&&anot.noite!==3)return '';   // chamado só da 3ª noite
     const id=`n${anot.noite}-${i}`,d=feitos.has(id);
     const ins=instDe(p),nm=ins.filter(x=>x.morto).length,tot=ins.length,mortoTodos=tot>0&&nm===tot;
     const btnE=!tot?'':mortoTodos?`<button class="elim" data-rv="${i}">↩ Voltou</button>`:tot===1?`<button class="elim" data-el="${i}">☠ Eliminado</button>`:`<button class="elim ${nm?'parc':''}" data-ep="${id}">☠ Eliminados ${nm}/${tot}</button>`;
     const painelE=(tot>1&&abertosE.has(id)&&!mortoTodos)?`<div class="elims">${ins.map(x=>`<button class="chipx ${x.morto?'on':''}" data-ek="${esc(x.k)}">${x.morto?'❤️':'💀'} ${esc(x.nome)}</button>`).join('')}</div>`:'';
     const lemb=camposDe(p).filter(c=>String(anot.ef[c.k]||'').trim()).map(c=>`<div class="lemb">${EFEITOS[c.f].i} ${EFEITOS[c.f].l}: <b>${esc(anot.ef[c.k])}</b></div>`).join('');
+    const us=usosDe(p),gasto=us.length>0&&us.every(u=>usadoAntes(u.k));
     const btnU=usosDe(p).map(u=>`<button class="elim ${anot.uso[u.k]?'on':''}" data-us="${esc(u.k)}">⚡ ${u.l}</button>`).join('');
-    return `<div class="call ${d?'done':''} ${mortoTodos?'dead':''}"><div class="h"><span class="who">${p.papeis.join(' · ')}</span><span style="display:flex;gap:8px;align-items:center"><span class="w">${p.quando_txt}</span>${efDe(p).length?`<button class="nbtn ${temNota(p)?'tem':''}" data-ab="${i}" aria-label="Anotar alvo/resultado">📝</button>`:''}</span></div>
+    return `<div class="call ${d?'done':''} ${mortoTodos?'dead':''} ${gasto?'gasto':''}"><div class="h"><span class="who">${p.papeis.join(' · ')}</span><span style="display:flex;gap:8px;align-items:center"><span class="w">${p.quando_txt}</span>${camposDe(p).length?`<button class="nbtn ${temNota(p)?'tem':''}" data-ab="${i}" aria-label="Anotar alvo/resultado">📝</button>`:''}</span></div>
       <q>“${p.fala}”</q><div class="a">${p.acao}</div>${lemb}
       <details><summary>Regras detalhadas</summary>${p.nomes.map(n=>{const r=ROLES.find(x=>x.name===n);return `<p><b>${r.pt||r.name}:</b> ${r.detalhe||r.acao}</p>`+(r.variantes&&r.variantes.length?'<ul>'+r.variantes.map(v=>`<li>${v}</li>`).join('')+'</ul>':'')}).join('')}</details>
       ${p.conferir?'<div class="warn">⚠ Conferir texto/regra na sua carta</div>':''}
       ${painelE}<div class="acoes"><label><input type="checkbox" data-id="${id}" ${d?'checked':''}> Chamado</label><span class="bts">${btnU}${btnE}</span></div></div>`}).join('');
-  if(!lista.length)h+='<div class="empty">Nenhum papel desta seleção age à noite.</div>';
+  if(!lista.filter(p=>!(p.quando==='n3'&&anot.noite!==3)).length)h+='<div class="empty">Nenhum papel desta seleção age à noite.</div>';
   if(r.sem_acao.length)h+=`<p class="small">Sem chamada noturna: ${r.sem_acao.join(', ')}.</p>`;
+  const mv=Object.keys(MULTI).filter(n=>q(n));
+  if(mv.length)h+=`<details class="cfgp"><summary>⚙ Poderes de uso único</summary>${mv.map(n=>`<label class="efl"><span>${esc(papelPt(n))}</span><select data-modo="${n}"><option value="mesma" ${modoDe(n)==='mesma'?'selected':''}>Todos na mesma noite</option><option value="sep" ${modoDe(n)==='sep'?'selected':''}>Separados (um por vez)</option></select></label>`).join('')}<p class="small">Todos na mesma noite: ao marcar "Poder usado", ela pode usar todos os poderes naquela noite e nunca mais. Separados: cada poder pode ser usado uma vez, em noites diferentes.</p></details>`;
   h+='<button class="relbtn" id="relBtn">🌙 Encerrar noite · Relatório</button><button class="reset" id="zerar">Desmarcar chamados</button>';
   $('#roteiro').innerHTML=h;
 }
@@ -513,6 +527,7 @@ function relatorio(){
     ${al.length?`<h4>⚠ Conferir</h4><ul>${al.map(([t,x])=>`<li class="l-${t}">${x}</li>`).join('')}</ul>`:'<p class="l-ok">✔ Nenhum conflito encontrado.</p>'}
     ${det}${notas?`<h4>📝 Outras anotações</h4><ul>${notas}</ul>`:''}`)+`</div><button class="fechar" onclick="dlg.close()">Fechar</button>`;
 }
+$('#roteiro').addEventListener('change',e=>{const s=e.target.closest('[data-modo]');if(!s)return;cfg.modo[s.dataset.modo]=s.value;salvarCfg();desenharRoteiro()});
 $('#roteiro').onchange=e=>{const id=e.target.dataset.id;if(!id)return;e.target.checked?feitos.add(id):feitos.delete(id);desenharRoteiro()};
 $('#roteiro').onclick=e=>{
   const nn=e.target.closest('[data-nn]');if(nn){setNoite(anot.noite+Number(nn.dataset.nn));return}
@@ -521,10 +536,9 @@ $('#roteiro').onclick=e=>{
   const ep=e.target.closest('[data-ep]');if(ep){const id=ep.dataset.ep;abertosE.has(id)?abertosE.delete(id):abertosE.add(id);desenharRoteiro();return}
   const ek=e.target.closest('[data-ek]');if(ek){const k=ek.dataset.ek;setMorto([k],!(anot.jog[k]||{}).morto);return}
   const ab=e.target.closest('[data-ab]');if(ab){abrirPop((dados.roteiro[aba]||[])[+ab.dataset.ab]);return}
-  const us=e.target.closest('[data-us]');if(us){const k=us.dataset.us;anot.uso[k]=!anot.uso[k];salvarA();desenharRoteiro();return}
+  const us=e.target.closest('[data-us]');if(us){const k=us.dataset.us;if(anot.uso[k])delete anot.uso[k];else anot.uso[k]=anot.noite;salvarA();desenharRoteiro();return}
   if(e.target.id==='relBtn'){$('#dlg').innerHTML=relatorio();$('#dlg').showModal();return}
   if(e.target.id==='zerar'){feitos.clear();desenharRoteiro()}};
-$('#seg').onclick=e=>{const k=e.target.dataset.k;if(!k)return;setNoite(k==='primeira'?1:Math.max(2,anot.noite))};
 document.querySelector('nav').onclick=e=>{const t=e.target.dataset.t;if(!t)return;
   document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b===e.target));
   for(const k of ['Vila','Papeis','Narr'])$('#tela'+k).hidden=t!==k;document.body.dataset.tela=t;scrollTo(0,0)};

@@ -95,8 +95,10 @@ const UW = (() => {
       p.acoes.push(acao);
       p.conferir = p.conferir || ROLES[n].conferir;
     };
+    const SEM_CHAMADA = new Set(["Apprentice Seer"]);   // entra sozinho quando a Vidente morre: o narrador já sabe
     for (const n of Object.keys(sel)) {
       const r = ROLES[n];
+      if (SEM_CHAMADA.has(n)) continue;
       if (r.ident) passo(n, { ordem: r.ident.ordem, fala: r.ident.fala, quando: "ident" }, r.ident.nota);
       if (r.noite) passo(n, r.noite, r.acao);
     }
@@ -104,7 +106,7 @@ const UW = (() => {
     for (const p of lista) { p.quando_txt = QUANDO[p.quando]; p.acao = p.acoes[Math.max(0, p.nomes.indexOf("Werewolf"))]; delete p.acoes; }
     const primeira = lista.filter(p => p.quando !== "trigger" && p.quando !== "n3");
     const seguintes = lista.filter(p => p.quando !== "first" && p.quando !== "ident");
-    const sem_acao = Object.keys(sel).filter(n => !ROLES[n].noite && !ROLES[n].ident);
+    const sem_acao = Object.keys(sel).filter(n => SEM_CHAMADA.has(n) || (!ROLES[n].noite && !ROLES[n].ident));
     return { primeira, seguintes, sem_acao };
   }
 
